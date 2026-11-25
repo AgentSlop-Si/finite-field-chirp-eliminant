@@ -1,0 +1,376 @@
+\documentclass[11pt,reqno]{amsart}
+
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage{lmodern}
+\usepackage{amsmath,amssymb,amsthm,mathtools}
+\usepackage{booktabs}
+\usepackage{enumitem}
+\usepackage[margin=1.05in]{geometry}
+\usepackage{microtype}
+\usepackage{xcolor}
+\PassOptionsToPackage{hyphens}{url}
+\usepackage[colorlinks=true,breaklinks=true,linkcolor=blue!60!black,citecolor=blue!60!black,urlcolor=blue!60!black]{hyperref}
+
+\numberwithin{equation}{section}
+
+\newtheorem{theorem}{Theorem}[section]
+\newtheorem{proposition}[theorem]{Proposition}
+\newtheorem{lemma}[theorem]{Lemma}
+\newtheorem{corollary}[theorem]{Corollary}
+\theoremstyle{definition}
+\newtheorem{definition}[theorem]{Definition}
+\newtheorem{example}[theorem]{Example}
+\theoremstyle{remark}
+\newtheorem{remark}[theorem]{Remark}
+
+\newcommand{\C}{\mathbb{C}}
+\newcommand{\F}{\mathbb{F}}
+\newcommand{\Q}{\mathbb{Q}}
+\newcommand{\R}{\mathbb{R}}
+\newcommand{\Z}{\mathbb{Z}}
+\newcommand{\rank}{\operatorname{rank}}
+\newcommand{\diag}{\operatorname{diag}}
+
+\title[A Nonvanishing Phase Eliminant for Finite-Field Chirps]{A Nonvanishing Phase Eliminant for Exact\\Finite-Field Chirp Recognition}
+
+\author[D. Kuttymbek]{Daniyar Kuttymbek}
+\address{Astana, Kazakhstan}
+\email{daniyar.kuttymbek@gmail.com}
+
+\author[A. Kuttymbek]{Adilkhan Kuttymbek}
+\address{Astana, Kazakhstan}
+\email{adilkhan.kuttymbek@gmail.com}
+
+\author[D. Kuttymbek]{Dayana Kuttymbek}
+\address{Astana, Kazakhstan}
+\email{dayanamiu74@gmail.com}
+
+\author[A. Kolpenova]{Amina Kolpenova}
+\address{Astana, Kazakhstan}
+\email{aminakolpenova@gmail.com}
+
+\author[M. Kottumbekov]{Mukhammadali Kottumbekov}
+\address{Astana, Kazakhstan}
+\email{mukhammadalikottumbek@gmail.com}
+
+\date{\today}
+\subjclass[2020]{Primary 68W30, 11T71; Secondary 15B05, 65T50, 11L05}
+\keywords{Finite-field chirp recognition, Toeplitz determinant eliminant, Berlekamp--Massey algorithm, Prony's method, quadratic Gauss sums, pruned FFT}
+
+\begin{document}
+
+\begin{abstract}
+We consider the exact recognition of complete raw vectors $x\in\F_p^N$ over a supplied prime field that become a short sum of at most $r$ grid exponentials after multiplication by a single unknown quadratic chirp phase: $x_j = \omega^{aj^2}\sum_{\ell=1}^s \gamma_\ell \omega^{u_\ell j}$ ($0\le j<N$, $0\le s\le r$). We introduce a centered Toeplitz polynomial determinant
+\[
+E(z) = \det\bigl[x_{c+i-j}\,z^{\binom{i-j}{2}}\bigr]_{0\le i,j\le r}
+\]
+that eliminates the unknown chirp phase $a$ over \emph{any} field without any generic-position assumption. At every permitted nonzero center $x_c\neq 0$ ($r\le c\le N-r-1$), we prove that $E(0)=x_c^{r+1}\neq 0$, $\deg E \le D := \binom{r+2}{3}$, every leading principal minor of order $k$ ($1\le k\le r+1$) has constant coefficient $x_c^k$ (hence is a unit in the truncated ring $\F_p[z]/(z^{D+1})$, guaranteeing pivot-free nonsymmetric Levinson construction), and every true chirp phase satisfies $E(\omega^{-2a})=0$.
+
+Combining this eliminant with pruned dyadic transforms, Berlekamp--Massey recovery, full-vector verification, and a self-contained quadratic Gauss-sum reduction yields a deterministic exact recognizer for dyadic lengths $N$ and cap $1\le r\le\lfloor N/3\rfloor$ using
+\[
+O\!\left(N r^3 \log(r+2) + r^{2+3\log_2 3}\right)
+\]
+field additions and multiplications, $O(1+r^4)$ scalar inversions, and $O(N+r^4)$ field elements of storage---charging all rejected candidates, final rejection, and all $N$ exact Fourier values on acceptance. We also give an all-length variant using blocked Karatsuba chirp convolution in $O(Nr^{2+\log_2 3} + r^{2+3\log_2 3})$ field operations without requiring extra roots or an all-length fast transform, together with a complete decision, sparse-first dispatch, and fresh-vector operator cost contract.
+\end{abstract}
+
+\maketitle
+
+\section{Introduction and main results}
+\label{sec:intro}
+
+Let $N\ge 3$, let $p$ be a supplied certified prime with $N\mid (p-1)$, and let $\omega\in\F_p^\times$ be a supplied element of exact multiplicative order $N$. Given a complete raw vector $x = (x_0,\ldots,x_{N-1})\in\F_p^N$ and an integer cap $1\le r\le \lfloor N/3\rfloor$ (with no supplied chirp phase, frequency support, recurrence, or decomposition), define the \emph{common-phase chirp family} $\mathcal{C}_r\subseteq\F_p^N$ by the existence of an integer $a$, an integer $0\le s\le r$, distinct frequencies $u_1,\ldots,u_s\in\Z/N\Z$, and nonzero amplitudes $\gamma_1,\ldots,\gamma_s\in\F_p^\times$ such that
+\begin{equation}
+\label{eq:Cr-def}
+x_j = \omega^{aj^2}\sum_{\ell=1}^s \gamma_\ell \omega^{u_\ell j}\qquad (0\le j<N),
+\end{equation}
+where the empty sum ($s=0$) represents the zero vector. Set
+\begin{equation}
+\label{eq:params}
+g = \gcd(2,N),\qquad L = \frac{N}{g},\qquad
+D = \binom{r+2}{3},\qquad C_* = \min(D,L),\qquad \kappa = \log_2 3.
+\end{equation}
+When $N$ is even, replacing $a$ by $a + N/2$ multiplies $\omega^{aj^2}$ by $\omega^{(N/2)j^2} = \omega^{(N/2)j}$ (since $j^2 - j$ is always even), which is absorbed into every frequency $u_\ell$. Thus restricting the phase search to $0\le a < L$ is complete (without claiming uniqueness of $a$ across phases). Throughout, we use the positive-sign unnormalized discrete Fourier transform
+\begin{equation}
+\label{eq:dft-def}
+(F_\omega x)_k = \sum_{j=0}^{N-1} x_j \omega^{kj}\qquad (0\le k<N),
+\end{equation}
+and every expression $m/2$ in an exponent denotes exact integer division of an even integer (never division by $2$ in the field).
+
+Our first main theorem introduces a uniformly nonvanishing Toeplitz phase eliminant valid over \emph{every} field.
+
+\begin{theorem}[Uniformly nonzero phase eliminant]
+\label{thm:eliminant}
+Let $x\in\F^N$ be nonzero over any field $\F$ containing an element $\omega$ of exact order $N\ge 3$, and let $1\le r\le \lfloor N/3\rfloor$.
+\begin{enumerate}[label=(\arabic*),leftmargin=2em]
+\item If $x\in\mathcal{C}_r$, then there exists an interior index $c\in\{r,\ldots,N-r-1\}$ with $x_c\neq 0$.
+\item For any index $c\in\{r,\ldots,N-r-1\}$ with $x_c\neq 0$, define $f(d)=d(d-1)/2$ ($d\in\Z$) and the $(r+1)\times(r+1)$ Toeplitz polynomial matrix
+\begin{equation}
+\label{eq:Az-def}
+A(z)_{ij} = x_{c+i-j}\,z^{f(i-j)}\quad (0\le i,j\le r),\qquad E(z) = \det A(z)\in\F[z].
+\end{equation}
+Then $E(0) = x_c^{r+1}\neq 0$ (so $E$ is never identically zero), $\deg E \le D = \binom{r+2}{3}$, and every leading principal minor of $A(z)$ of order $k$ ($1\le k\le r+1$) has constant coefficient $x_c^k\neq 0$.
+\item Every phase $a$ appearing in a representation~\eqref{eq:Cr-def} of $x$ satisfies $E(\omega^{-2a}) = 0$. Consequently, at most $C_* = \min(D,L)$ canonical phases $0\le a < L$ can represent $x$.
+\end{enumerate}
+\end{theorem}
+
+Crucially, because every leading principal minor of $A(z)$ is a unit in $\F_p[z]/(z^{D+1})$ at \emph{every} nonzero center $x_c$, a nonsymmetric Levinson-type recurrence constructs $E(z)$ with zero pivot failures and zero generic-position assumptions. Combining Theorem~\ref{thm:eliminant} with exact fixed-phase recovery and complete Gauss-sum evaluation gives our two deterministic recognition theorems.
+
+\begin{theorem}[Exact dyadic chirp recognition with dense DFT output]
+\label{thm:dyadic}
+Under the supplied prime-field contract above, suppose $N$ is a power of two. There is a deterministic algorithm that decides exact membership in $\mathcal{C}_r$, returning a verified representation~\eqref{eq:Cr-def} and all $N$ Fourier values~\eqref{eq:dft-def} on acceptance, and proving nonmembership on rejection. With $T(r) = r^2(D+1)^\kappa$, every complete attempt (including all failed candidates and final rejection) uses $O(H(N,r))$ field additions and multiplications, where
+\begin{equation}
+\label{eq:H-env}
+H(N,r) = T(r) + D + N\log\bigl(\min(D+1,L)+2\bigr) + C_*\bigl(N\log(r+2) + r^2\bigr) + Nr + N,
+\end{equation}
+which simplifies to $O\bigl(Nr^3\log(r+2) + r^{2+3\kappa}\bigr)$, together with $O(1+C_*r)\subseteq O(1+r^4)$ separately charged scalar inversions and $O(N+r(D+1))\subseteq O(N+r^4)$ field elements of storage.
+\end{theorem}
+
+\begin{theorem}[Exact all-length chirp recognition]
+\label{thm:all-length}
+Without assuming $N$ is a power of two (and without requiring additional Fourier roots, an extension field, or an all-length $O(N\log N)$ transform backend), a deterministic algorithm decides the same exact contract for $\mathcal{C}_r$ using $O(B(N,r))$ field additions and multiplications, where
+\begin{equation}
+\label{eq:B-env}
+B(N,r) = T(r) + N(D+1) + C_*\bigl(N(r+1)^{\kappa-1} + r^3\bigr) + Nr + N,
+\end{equation}
+which simplifies to $O\bigl(Nr^{2+\kappa} + r^{2+3\kappa}\bigr)$, with the same $O(1+r^4)$ scalar inversion and $O(N+r^4)$ storage bounds.
+\end{theorem}
+
+The paper is organized as follows. Section~\ref{sec:eliminant} proves Theorem~\ref{thm:eliminant}. Section~\ref{sec:levinson} presents the pivot-free Levinson construction in $\F_p[z]/(z^{D+1})$. Section~\ref{sec:dyadic} proves Theorem~\ref{thm:dyadic} (fixed-phase Berlekamp--Massey recovery, pruned dyadic transforms, and phase search). Section~\ref{sec:all-length} proves Theorem~\ref{thm:all-length} via blocked chirp convolution. Section~\ref{sec:gauss} derives the complete all-length quadratic Gauss-sum reduction for dense DFT output. Section~\ref{sec:contract} details sparse-first dispatching, fresh-vector operator applications, and the complete rejection/cost ledger. Section~\ref{sec:prior} compares our eliminant and decision contract with prior literature and states open problems.
+
+\section{Proof of the eliminant theorem}
+\label{sec:eliminant}
+
+\begin{proof}[Proof of Theorem~\ref{thm:eliminant}]
+\emph{Part (1): Existence of an interior nonzero center.} Write a nonzero member $x\in\mathcal{C}_r$ as $x_j = \omega^{aj^2} y_j$, where $y_j = \sum_{\ell=1}^s \gamma_\ell \lambda_\ell^j$ with $1\le s\le r$, distinct nonzero $\lambda_\ell = \omega^{u_\ell}$, and $\gamma_\ell\neq 0$. If $s$ consecutive entries $y_{j_0},\ldots,y_{j_0+s-1}$ vanished, then the square Vandermonde matrix $[\lambda_\ell^i]_{0\le i<s,\,1\le\ell\le s}$ would annihilate the nonzero vector $(\gamma_\ell \lambda_\ell^{j_0})_{\ell=1}^s$, impossible. Since $\omega^{aj^2}\neq 0$, $x$ cannot vanish on $s$ consecutive coordinates. Because $r\le \lfloor N/3\rfloor$, the interior window $\{r,\ldots,N-r-1\}$ has length $N - 2r \ge r \ge s$, so it must contain at least one index $c$ with $x_c\neq 0$.
+
+\smallskip
+\noindent\emph{Part (2): Constant term, unit leading minors, and degree bound.} For every integer $d\in\Z$, $f(d) = d(d-1)/2$ is a nonnegative integer, with $f(d)=0$ if and only if $d\in\{0,1\}$. Consequently, setting $z=0$ in~\eqref{eq:Az-def} annihilates all entries strictly above the main diagonal ($i - j < 0$) and all entries strictly below the first subdiagonal ($i - j > 1$), leaving a lower bidiagonal matrix $A(0)$ whose entire main diagonal equals $x_c$. Therefore every leading principal minor of $A(z)$ of order $k$ ($1\le k\le r+1$) has constant term $\det A(0)[0{:}k,\,0{:}k] = x_c^k\neq 0$, and in particular $E(0) = x_c^{r+1}\neq 0$.
+
+For any permutation $\sigma$ of $\{0,\ldots,r\}$, the $z$-exponent of the corresponding Leibniz term $\prod_{i=0}^r A(z)_{i,\sigma(i)}$ is
+\begin{align*}
+\sum_{i=0}^r f\bigl(i - \sigma(i)\bigr)
+&= \frac{1}{2}\sum_{i=0}^r \bigl(i^2 - 2i\sigma(i) + \sigma(i)^2 - i + \sigma(i)\bigr)\\
+&= \sum_{i=0}^r i^2 - \sum_{i=0}^r i\,\sigma(i),
+\end{align*}
+because $\sum_{i=0}^r \sigma(i)^2 = \sum_{i=0}^r i^2$ and $\sum_{i=0}^r \sigma(i) = \sum_{i=0}^r i$. By the rearrangement inequality, $\sum_{i=0}^r i\,\sigma(i)$ is minimized when $\sigma(i) = r - i$, maximizing the exponent at
+\[
+2\sum_{i=0}^r i^2 - r\sum_{i=0}^r i
+= \frac{r(r+1)(2r+1)}{3} - \frac{r^2(r+1)}{2}
+= \frac{r(r+1)(r+2)}{6} = \binom{r+2}{3} = D.
+\]
+Thus $\deg E \le D$ (and similarly every square minor has degree at most $D$, by extending a partial matching to a full permutation). Notice that this argument holds in arbitrary characteristic and does not require $D < p$.
+
+\smallskip
+\noindent\emph{Part (3): Every true phase is a root.} Suppose $x$ satisfies~\eqref{eq:Cr-def} with phase $a$ and $y_j = \omega^{-aj^2}x_j$. At $z = \omega^{-2a}$ and $d = i - j$, the quadratic exponent satisfies the exact cancellation identity
+\begin{equation}
+\label{eq:chirp-cancel}
+a(c + d)^2 - 2a\,f(d) = a(c^2 + 2cd + d^2) - a(d^2 - d) = ac^2 + a(2c+1)(i - j).
+\end{equation}
+Hence
+\[
+A(\omega^{-2a})_{ij} = \omega^{ac^2}\cdot \omega^{a(2c+1)i}\cdot y_{c+i-j}\cdot \omega^{-a(2c+1)j}.
+\]
+The prefactors separate into a nonzero constant times invertible diagonal row and column scalings, while the matrix $[y_{c+i-j}]_{0\le i,j\le r}$ factors as $\sum_{\ell=1}^s (\gamma_\ell\lambda_\ell^c)\,(\lambda_\ell^i)_{i=0}^r (\lambda_\ell^{-j})_{j=0}^r$ and therefore has rank at most $s\le r < r+1$. Thus $\det A(\omega^{-2a}) = E(\omega^{-2a}) = 0$.
+
+Since $\omega$ has exact order $N$, the elements $\omega^{-2a}$ for $0\le a < L = N/\gcd(2,N)$ are pairwise distinct. Because $E$ is a nonzero polynomial of degree at most $D$, it has at most $D$ roots in $\F$, leaving at most $C_* = \min(D,L)$ candidate phases in $\{0,\ldots,L-1\}$. (Note that if reducing $E$ modulo $z^L - 1$ produces the zero polynomial, then $D\ge L$, $C_*=L$, and all $L$ canonical phases are retained without applying a degree bound to the zero reduced polynomial.)
+\end{proof}
+
+\section{Pivot-free determinant construction in $\F_p[z]/(z^{D+1})$}
+\label{sec:levinson}
+
+Work in the truncated polynomial ring $\mathcal{R} = \F_p[z]/(z^{D+1})$. Set $a_d = x_{c+d} z^{f(d)}\in\mathcal{R}$ for $-r\le d\le r$, and let $T_k = [a_{i-j}]_{0\le i,j<k}$ for $1\le k\le r+1$ (with $\det T_0 = 1$). By Theorem~\ref{thm:eliminant}(2), every $\det T_k$ has constant term $x_c^k\neq 0$ and is therefore a \emph{unit} in $\mathcal{R}$.
+
+We employ the classical nonsymmetric Levinson-type paired-predictor recurrence (see Gutknecht--Hochbruck~\cite[Section~2, Algorithm~1]{GH95}), whose pivot nonsingularity is here guaranteed unconditionally by the centered unit property. For each $0\le k\le r$, let $u^{(k)}, v^{(k)}\in\mathcal{R}^{k+1}$ be the unique vectors with $u_0^{(k)} = v_0^{(k)} = 1$ solving
+\[
+\sum_{j=0}^k a_{i-j} u_j^{(k)} = 0,\qquad
+\sum_{j=0}^k a_{j-i} v_j^{(k)} = 0\qquad (1\le i\le k),
+\]
+whose Schur-complement residuals satisfy
+\begin{equation}
+\label{eq:schur}
+e_k = \sum_{j=0}^k a_{-j} u_j^{(k)} = \sum_{j=0}^k a_j v_j^{(k)} = \frac{\det T_{k+1}}{\det T_k},\qquad e_k(0) = x_c\neq 0.
+\end{equation}
+Initialize $u = v = (1)$, $e = a_0$, and $\Delta = a_0$. For $k = 1,\ldots,r$:
+\begin{enumerate}[label=(\arabic*),leftmargin=2em]
+\item Compute $A_k = a_k + \sum_{j=1}^{k-1} a_{k-j} u_j$ and $B_k = a_{-k} + \sum_{j=1}^{k-1} a_{j-k} v_j$ in $\mathcal{R}$.
+\item Invert the unit $e\in\mathcal{R}^\times$ via Newton doubling $g \leftarrow g(2 - eg)$ starting from the single cached scalar inverse $g_0 = x_c^{-1}\in\F_p^\times$ (which squares the residual $1 - eg$ in any characteristic without dividing by $2$), and set $\alpha_k = -A_k e^{-1}$, $\beta_k = -B_k e^{-1}$.
+\item Update simultaneously $u'_j = u_j + \alpha_k v_{k-j}$ and $v'_j = v_j + \beta_k u_{k-j}$ for $1\le j<k$, with $u'_0 = v'_0 = 1$, $u'_k = \alpha_k$, $v'_k = \beta_k$.
+\item Update $e' = e + \alpha_k B_k = e - A_k B_k e^{-1}$ and $\Delta' = \Delta e'$.
+\end{enumerate}
+Reversing the previous $v$-equations cancels the first $k-1$ rows of $u'$ and leaves residual $e$ in row $k$, which $\alpha_k = -A_k e^{-1}$ annihilates (and symmetrically for $v'$); expanding $e'$ preserves~\eqref{eq:schur}. After step $k=r$, $\Delta = \det T_{r+1} \equiv E(z)\pmod{z^{D+1}}$, which is the complete polynomial $E(z)$ because $\deg E\le D$.
+
+Using truncated Karatsuba multiplication costing $M(m) = O(m^\kappa)$ field additions and multiplications, each Newton inversion costs $O(M(D+1))$ operations. Across $r$ stages there are $O(r^2)$ ring operations and $r$ ring inversions, totaling $O(T(r)) = O(r^2(D+1)^\kappa)$ field operations, $1$ scalar field inversion ($x_c^{-1}$), and $O(r(D+1))$ live field elements of workspace.
+
+\section{Exact fixed-phase sparse recovery and dyadic decision}
+\label{sec:dyadic}
+
+Let $\mathcal{S}_t\subseteq\F_p^N$ denote the zero-phase sparse exponential family $y_j = \sum_{\ell=1}^s \gamma_\ell \omega^{u_\ell j}$ ($0\le s\le t$). We first recall the exact pruned dyadic transform bound and fixed-phase sparse decision procedure.
+
+\begin{lemma}[Pruned dyadic FFT bound]
+\label{lem:pruned}
+For $N = 2^m$ and a polynomial $f\in\F_p[z]$ with at most $h\ge 1$ nonzero coefficients of degrees $< N$, evaluating $f(\omega^k)$ for all $0\le k<N$ requires $O(N\log(h+2))$ field additions and multiplications, $0$ inversions, and $O(N)$ storage.
+\end{lemma}
+
+\begin{proof}
+Splitting $f(z) = f_{\mathrm{even}}(z^2) + z f_{\mathrm{odd}}(z^2)$ recursively yields at depth $d$ ($0\le d\le m$) at most $\min(2^d, h)$ nonzero subproblems, each of size $N/2^d$ (pruning all identically zero subtrees, cf.~\cite{FFTW}). Summing combine work over depths $d\le \lceil\log_2 h\rceil$ (at most $N$ per level) and $d > \lceil\log_2 h\rceil$ (geometric sum $\le 2N$) gives $O(N[1+\log(h+1)]) = O(N\log(h+2))$ operations; depth-first traversal reuses $O(N)$ storage.
+\end{proof}
+
+\begin{proposition}[Exact dyadic fixed-phase test $D_t$]
+\label{prop:Dt}
+For dyadic $N$ and $1\le t\le N/2$, exact membership of $y\in\F_p^N$ in $\mathcal{S}_t$ is decided deterministically in $O(A(N,t)) = O(N\log(t+2) + t^2)$ field additions and multiplications, $O(t)$ scalar inversions, and $O(N)$ storage.
+\end{proposition}
+
+\begin{proof}
+Run the quadratic Berlekamp--Massey algorithm~\cite{Mas69} on the prefix $y_0,\ldots,y_{2t-1}$ (costing $O(t^2)$ ops and $O(t)$ cached discrepancy inversions). Because minimal recurrence order is nondecreasing, reject immediately if the order exceeds $t$. Otherwise let $s\le t$ be the final order with connection polynomial $C(z) = 1 + C_1 z + \cdots + C_s z^s$:
+\begin{itemize}[leftmargin=1.5em]
+\item If $s = 0$, accept iff every coordinate $y_j$ ($0\le j<N$) vanishes.
+\item If $s > 0$, require $\deg C = s$. Evaluate $C(\omega^v)$ for all $0\le v<N$ via Lemma~\ref{lem:pruned} in $O(N\log(t+2))$ ops; require exactly $s$ distinct grid roots $\rho_\ell = \omega^{v_\ell}$, and set $\lambda_\ell = \rho_\ell^{-1} = \omega^{-v_\ell}$ (noting the sign negation).
+\item Form $Q(z) = C(z)\sum_{j=0}^{s-1} y_j z^j \bmod z^s$ and compute the Prony/Forney amplitudes~\cite{PP13}
+\begin{equation}
+\label{eq:forney}
+\gamma_\ell = -\lambda_\ell\,\frac{Q(\rho_\ell)}{C'(\rho_\ell)}\qquad (1\le \ell\le s),
+\end{equation}
+requiring $C'(\rho_\ell)\neq 0$ and $\gamma_\ell\neq 0$ for all $\ell$ ($O(t^2)$ ops and $O(t)$ inversions).
+\item Synthesize $\tilde{y}_j = \sum_{\ell=1}^s \gamma_\ell \omega^{u_\ell j}$ for all $0\le j<N$ via Lemma~\ref{lem:pruned} in $O(N\log(t+2))$ ops and accept iff $\tilde{y}_j = y_j$ for every $0\le j<N$.
+\end{itemize}
+For any true member $y\in\mathcal{S}_t$ of exact sparsity $s\le t$, the leading Hankel block $[y_{i+j}]_{0\le i,j<s} = V\diag(\gamma_\ell)V^T$ ($V_{i\ell}=\lambda_\ell^i$) is nonsingular, so the first $2t\ge 2s$ samples uniquely recover $C(z)=\prod_{\ell=1}^s(1-\lambda_\ell z)$ and~\eqref{eq:forney} from $\sum_{j\ge 0} y_j z^j = \sum_{\ell=1}^s \gamma_\ell/(1-\lambda_\ell z)$, passing all checks. Conversely, final full-vector comparison guarantees soundness on every raw input.
+\end{proof}
+
+\begin{proof}[Proof of Theorem~\ref{thm:dyadic}]
+First validate the contract and build the power table $1,\omega,\ldots,\omega^N$ ($O(N)$ ops, verifying $\omega^N=1$ and $\omega^j\neq 1$ for $1\le j<N$, and replacing field inversions of powers with table lookups). Handle $x=0$ directly; otherwise scan $\{r,\ldots,N-r-1\}$ for a nonzero center $x_c$, rejecting immediately if none exists (Theorem~\ref{thm:eliminant}(1)).
+
+Construct $E(z)$ via Section~\ref{sec:levinson} in $O(T(r))$ ops and $1$ scalar inversion. Set $\eta = \omega^{-2}$ (dyadic order $L = N/2$) and reduce coefficients modulo $z^L - 1$ to obtain $\overline{E}$ of support at most $\min(D+1,L)$ in $O(D+L)$ ops. Evaluating $\overline{E}(\eta^a)$ for all $0\le a<L$ via Lemma~\ref{lem:pruned} takes $O(N\log(\min(D+1,L)+2))$ ops; retain every $a$ with $\overline{E}(\eta^a)=0$ (all $L$ phases if $\overline{E}\equiv 0$).
+
+By Theorem~\ref{thm:eliminant}(3), at most $C_* = \min(D,L)$ phases survive. For each surviving $a$, form $y_j = \omega^{-aj^2}x_j$ in $O(N)$ ops and run $D_r$ (Proposition~\ref{prop:Dt}), discarding failed phases and stopping at the first acceptance; if all candidates fail, reject. On acceptance, compute all $N$ Fourier values~\eqref{eq:dft-def} in $O(Nr + N)$ ops via Section~\ref{sec:gauss}. Summing all stages yields~\eqref{eq:H-env} (with $C_*r^2 = O(r^5)$ absorbed by $r^{2+3\kappa}$), $O(1+C_*r)$ inversions, and $O(N+r(D+1))$ peak storage via reusable candidate buffers.
+\end{proof}
+
+\section{All-length recognition via blocked chirp convolution}
+\label{sec:all-length}
+
+\begin{proof}[Proof of Theorem~\ref{thm:all-length}]
+Construct $E(z)$ in $O(T(r))$ ops as in Section~\ref{sec:levinson}, then evaluate $E(\omega^{-2a})$ at all $0\le a<L=N/\gcd(2,N)$ directly by Horner's rule in $O(N(D+1))$ ops (requiring no power-of-two length or extra roots).
+
+For each of the at most $C_*$ surviving phases $a$, form $y_j = \omega^{-aj^2}x_j$ and compute the rank $s\le r$ of the $r\times r$ Hankel block $[y_{i+j}]_{0\le i,j<r}$ by dense elimination ($O(r^3)$ ops, $O(r)$ inversions). If $s=0$, accept iff $y=0$. Otherwise require the leading $s\times s$ Hankel block to be nonsingular, solve $\sum_{j=0}^{s-1} p_j y_{i+j} = -y_{i+s}$ ($0\le i<s$, $p_s=1$) for the monic recurrence polynomial $p(z) = \sum_{j=0}^s p_j z^j$, and verify:
+\begin{enumerate}[label=(\arabic*),leftmargin=2em]
+\item $p(z)$ has exactly $s$ distinct roots $\lambda_1,\ldots,\lambda_s$ on the grid $\{\omega^k : 0\le k<N\}$;
+\item every recurrence residual $\sum_{j=0}^s p_j y_{k+j}$ ($0\le k<N-s$) vanishes;
+\item solve the $s\times s$ Vandermonde system for $\gamma_1,\ldots,\gamma_s$ matching $y_0,\ldots,y_{s-1}$ ($O(r^3)$ ops, $O(r)$ inversions), dropping any zero weights.
+\end{enumerate}
+Completeness follows from the nonsingular Hankel factorization $V\diag(\gamma_\ell)V^T$; soundness follows by induction on $k$ from matching the first $s$ samples and satisfying the verified monic recurrence at every $k<N-s$.
+
+To execute steps~(1) and~(2) in $O(N(r+1)^{\kappa-1})$ field ops without any fast transform or field halving, put $b = s+1$ and split the grid into $\lceil N/b\rceil$ blocks $k = K + a$ ($0\le a<b$). Using the exact integer identity
+\begin{equation}
+\label{eq:blocked-chirp}
+aj = \binom{a}{2} + \binom{j+1}{2} - \binom{a-j}{2}\qquad (a,j\in\Z),
+\end{equation}
+each block evaluation takes the convolution form
+\[
+p(\omega^{K+a}) = \omega^{\binom{a}{2}} \sum_{j=0}^s \Bigl(p_j\,\omega^{Kj + \binom{j+1}{2}}\Bigr)\,\omega^{-\binom{a-j}{2}}.
+\]
+Each length-$O(b)$ linear convolution takes $O(b^\kappa)$ Karatsuba ops, totaling $O(N b^{\kappa-1})\subseteq O(N(r+1)^{\kappa-1})$ across all $\lceil N/b\rceil$ blocks. Likewise, convolving length-$b$ chunks of $y$ with $(p_s,\ldots,p_0)$ via overlap-add checks all $N-s$ recurrence residuals in $O(N(r+1)^{\kappa-1})$ ops. Combining with Horner evaluation, Gauss-row output (Section~\ref{sec:gauss}), and noting $C_* r^3 = O(r^6) \ll r^{2+3\kappa}$ proves~\eqref{eq:B-env} and Theorem~\ref{thm:all-length}.
+\end{proof}
+
+\section{Complete Gauss-row reduction for dense Fourier output}
+\label{sec:gauss}
+
+Given an accepted representation~\eqref{eq:Cr-def}, the dense Fourier transform~\eqref{eq:dft-def} is
+\begin{equation}
+\label{eq:dft-gauss}
+(F_\omega x)_k = \sum_{\ell=1}^s \gamma_\ell G_a(k + u_\ell),\qquad
+G_a(k) = \sum_{j=0}^{N-1} \omega^{aj^2 + kj},
+\end{equation}
+where indices are taken modulo $N$. The following proposition evaluates the entire length-$N$ Gauss row $G_a(\cdot)$ in $O(N)$ field operations for \emph{every} length $N\ge 1$ and \emph{every} phase $0\le a<N$, including even lengths and nonunit phases.
+
+\begin{proposition}[All-length quadratic Gauss-row reduction]
+\label{prop:gauss}
+Put $d = \gcd(a,N)$, $m = N/d$, $A = a/d$, and $\xi = \omega^d$ (with $d=N, m=1, A=0$ if $a=0$). Then $G_a(k) = 0$ unless $d\mid k$, and for $k = dw$, $G_a(dw) = d\,T(w)$ where $T(w) = \sum_{u=0}^{m-1} \xi^{Au^2 + wu}$ satisfies:
+\begin{enumerate}[label=(\arabic*),leftmargin=2em]
+\item If $m = 1$ (i.e., $a = 0$), then $T(0) = 1$, giving $G_0(0) = N$ and $G_0(k) = 0$ for $k\not\equiv 0\pmod N$.
+\item If $m > 1$ is odd, then $\gcd(4A,m) = 1$ and
+\begin{equation}
+\label{eq:gauss-odd}
+T(w) = T(0)\,\xi^{-w^2(4A)^{-1}\bmod m}.
+\end{equation}
+\item If $m = 2q$ is even, then $A$ is odd, $T(w) = 0$ unless $w\equiv q\pmod 2$, and setting $w_0 = q\bmod 2$ and $u = \frac{w - w_0}{2}A^{-1}\bmod q$ (taking $u=0$ if $q=1$),
+\begin{equation}
+\label{eq:gauss-even}
+T(w) = T(w_0)\,\xi^{-Au^2 - w_0 u}.
+\end{equation}
+\end{enumerate}
+\end{proposition}
+
+\begin{proof}
+Writing $j = u + vm$ ($0\le u<m$, $0\le v<d$) yields $a j^2 + kj \equiv A d u^2 + k u + k v m\pmod N$, since $a m = A N$. Summing over $v\in[d]$ gives $0$ unless $d\mid k$, and $d\,T(w)$ when $k = dw$.
+
+Case~(1) is immediate. For Case~(2), $m$ is odd and $\gcd(A,m)=1$, so $4A$ is invertible modulo $m$; letting $t \equiv w(2A)^{-1}\pmod m$ and shifting $u \mapsto u - t$ completes the square $A(u-t)^2 + w(u-t) \equiv Au^2 - w^2(4A)^{-1}\pmod m$, proving~\eqref{eq:gauss-odd}.
+
+For Case~(3), since $\gcd(A,2q)=1$, $A$ is odd. Shifting $u\mapsto u+q$ multiplies each summand by $\xi^{A(2qu+q^2)+wq} = (-1)^{Aq + w}$ (using $\xi^q = -1$ and $\xi^{2q} = 1$). Because $A$ is odd, $Aq + w \equiv q + w\pmod 2$, so $T(w) = (-1)^{q+w} T(w)$, forcing $T(w)=0$ whenever $w\not\equiv q\pmod 2$. When $w\equiv w_0 = q\bmod 2$, $(w - w_0)/2$ is an integer, and $u = \frac{w - w_0}{2}A^{-1}\bmod q$ satisfies $2Au \equiv w - w_0\pmod{2q}$. Shifting the summation index by $-u$ gives
+\[
+A(v - u)^2 + w(v - u) \equiv Av^2 + (w - 2Au)v + (Au^2 - wu) \equiv Av^2 + w_0 v - Au^2 - w_0 u \pmod{2q},
+\]
+proving~\eqref{eq:gauss-even}. Moreover, shifting $u$ by $q$ changes $Au^2 + w_0 u$ by $q(Aq + w_0) + 2Aqu \equiv 0\pmod{2q}$ since $Aq + w_0$ is even, so~\eqref{eq:gauss-even} is independent of the representative $u\bmod q$.
+\end{proof}
+
+Computing $T(0)$ (or $T(w_0)$) by one $O(m)$ pass and filling $G_a(\cdot)$ via~\eqref{eq:gauss-odd}--\eqref{eq:gauss-even} takes $O(N)$ field operations (plus one $O(\log N)$-bit integer modular inverse), and~\eqref{eq:dft-gauss} then evaluates all $N$ Fourier outputs in $O(Ns + N)\subseteq O(Nr + N)$ field operations.
+
+\section{Sparse-first dispatching, operator applications, and cost contract}
+\label{sec:contract}
+
+Table~\ref{tab:ledger} collects the complete arithmetic, scalar-inversion, and storage charges of Theorems~\ref{thm:dyadic} and~\ref{thm:all-length}. Several contract distinctions deserve explicit attention:
+\begin{itemize}[leftmargin=1.5em]
+\item \emph{Sparse-first dispatching:} At dyadic $N$, running $D_t$ (Proposition~\ref{prop:Dt}) first recognizes $\mathcal{S}_t\cup\mathcal{C}_r$ with fast $O(N + A(N,t))$ acceptance on sparse vectors (scattering $N\gamma_\ell$ to $-u_\ell$ in $O(N+s)$ ops), paying $O(N + A(N,t) + \min(B,H))$ if the sparse check fails. Setting $t=r$ preserves $\mathcal{S}_r\subseteq\mathcal{C}_r$ and absorbs $A(N,r)$ inside $H(N,r)$.
+\item \emph{Fresh-vector operator applications:} For supplied diagonals $\alpha,\beta\in\F_p^N$, consider $M_x = \diag(\alpha) F_\omega \diag(x) F_\omega \diag(\beta)$. A sparse ($a=0$) certificate yields $(M_x v)_i = N\alpha_i \sum_{\ell=1}^s \gamma_\ell \beta_{-i-u_\ell} v_{-i-u_\ell}$, applying to each fresh vector $v$ in $O(N(s+1))$ operations. By contrast, a general chirp certificate gives $(M_x v)_i = \alpha_i \sum_m \beta_m v_m (F_\omega x)_{i+m}$; for odd $N$ and unit phase $a$,~\eqref{eq:gauss-odd} makes $G_a(i+m)$ diagonally equivalent to a full Fourier matrix with primitive root $\omega^{-(2a)^{-1}}$ and nonzero common Gauss factor $T(0)$, so uniform linear-time fresh-vector application cannot follow automatically without implying a linear-time arbitrary-input DFT.
+\item \emph{Rejection, fallback, and bit-cost accounting:} A completed rejection proves $x\notin\mathcal{C}_r$ without returning a DFT or a succinct negative witness; a total-DFT wrapper pays the failed recognition attempt plus its fallback backend ($O(N\log N)$ dyadic or $O(N^\kappa)$ same-field all-length). For slowly growing cap $r = o((\log N / \log\log N)^{1/3})$, the dyadic field addition/multiplication envelope $H(N,r)$ is $o(N\log N)$, while word/bit models multiply by modular arithmetic costs and add $O(1+C_*r)$ inversions, $O(\log N)$-bit integer modular inverses from Proposition~\ref{prop:gauss}, and any optional primality certification.
+\end{itemize}
+
+\begin{table}[ht]
+\centering
+\caption{Complete field-operation, scalar-inversion, and storage ledger for dyadic (Theorem~\ref{thm:dyadic}) and all-length (Theorem~\ref{thm:all-length}) recognition.}
+\label{tab:ledger}
+\begin{tabular}{llll}
+\toprule
+Stage & Field add/mul & Inversions & Live storage \\
+\midrule
+Validation, root table, center scan & $O(N)$ & $0$ & $O(N)$ \\
+Levinson $E(z)$ in $\F_p[z]/(z^{D+1})$ & $O(r^2(D+1)^\kappa)$ & $1$ ($x_c^{-1}$) & $O(r(D+1))$ \\
+Phase scan (dyadic / all-length) & $O(N\log(\min(D+1,L)+2))$ / $O(N(D+1))$ & $0$ & $O(N + D)$ \\
+All $\le C_*$ candidates (dyadic) & $O(C_*(N\log(r+2)+r^2))$ & $O(C_* r)$ & $O(N)$ reused \\
+All $\le C_*$ candidates (all-length) & $O(C_*(N(r+1)^{\kappa-1}+r^3))$ & $O(C_* r)$ & $O(N+r^2)$ reused \\
+Accepted Gauss row \& dense DFT & $O(Nr + N)$ & $0$ (int.\ inv.) & $O(N)$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\section{Relation to prior work and open problems}
+\label{sec:prior}
+
+We separate classical algorithmic building blocks from closely related elimination and chirp-recovery work:
+\begin{itemize}[leftmargin=1.5em]
+\item \emph{Classical recovery and structured-matrix kernels:} Minimal linear recurrence synthesis is due to Berlekamp and Massey~\cite{Mas69}; Prony/Vandermonde exponential recovery is classical (see Peter--Plonka~\cite[Theorem~2.1 and Section~5]{PP13}); nonsymmetric Toeplitz paired predictors follow Gutknecht--Hochbruck~\cite[Section~2, Algorithm~1]{GH95}; and input-pruned dyadic transforms are standard~\cite{FFTW}. What is new here is the centered polynomial normalization $A(z)_{ij}=x_{c+i-j}z^{f(i-j)}$, its unconditional unit leading-minor guarantee over arbitrary fields, and the complete paid finite-field decision contract.
+\item \emph{Homoscedastic Gaussian-mixture eliminants:} Eliminating a shared quadratic-variance parameter via the vanishing of a deconvolved Hankel determinant appears in algebraic statistics for Gaussian mixtures (Agostini--Am\'endola--Ranestad~\cite[Section~4.3, Eqs.~(79)--(81)]{AAR21}; Wu--Yang~\cite[Section~4.2, Algorithm~3]{WY20}; see also Derin~\cite{Der87} and Lindsay~\cite[Theorem~5B]{Lin89}). Those works operate on real probability moments or empirical samples with statistical / almost-sure qualifications rather than raw finite-field vectors with worst-case every-input verification and rejection ledgers. (We note transparently that only abstracts/secondary citations of~\cite{Der87} and~\cite{Lin89} were accessible during preparation, whereas~\cite{AAR21} and~\cite{WY20} were inspected in full.)
+\item \emph{Chirp sensing codes (Applebaum--Howard--Searle--Calderbank~\cite{AHSC09}):} Full-text inspection of~\cite[Sections~3 and~5.2, Eqs.~(5)--(8)]{AHSC09} confirms a fundamentally different mechanism: their algorithm operates over $\C$ at prime lengths $K$ by forming conjugate delay products $f(l)=\overline{y(l)}\,y(l+T)$, taking complex FFTs, greedily selecting peak bins $2r_i T\bmod K$ (relying on complex magnitudes and cross-term energy spreading), dechirping, and stopping at an $\ell_2$-energy threshold. It uses no Toeplitz determinant eliminant, no finite-field arithmetic, and no worst-case exact rejection certificate.
+\end{itemize}
+
+\subsection*{Open problems}
+\begin{enumerate}[label=(\arabic*),leftmargin=2em]
+\item \emph{Lower-degree phase eliminants:} Can the degree bound $D=\binom{r+2}{3}=O(r^3)$ of Theorem~\ref{thm:eliminant} be lowered (e.g., to $O(r^2)$) while retaining an unconditional nonvanishing constant term and unit leading principal minors with no generic-position assumption?
+\item \emph{Multiple chirp rates:} Extend the pivot-free determinant eliminant to exact finite-field recognition of superpositions with $k\ge 2$ distinct unknown quadratic chirp phases.
+\item \emph{Sublinear query complexity:} When oracle access to $x$ is permitted, characterize the minimum number of deterministic coordinate queries needed to decide $\mathcal{C}_r$ without scanning all $N$ entries.
+\end{enumerate}
+
+\section*{Data and code availability}
+All verification artifacts are publicly available at
+\begin{center}
+\url{https://github.com/AgentSlop-Si/finite-field-chirp-eliminant}
+\end{center}
+and consist of:
+\begin{enumerate}[label=(\arabic*),leftmargin=2em]
+\item A standalone Python verification script (\texttt{verify\_chirp\_eliminant.py}, standard library only) verifying the Levinson-predictor determinant against direct Leibniz expansion across $r\in\{1,2,3,4\}$ and $p\in\{2,3,5,7,17\}$ (including unit leading principal minors and predictor invariants), exhaustive exact decision and accepted dense DFT output across all $625$ vectors of $\F_5^4$ plus structured/adversarial controls up to $N=16, r=3$ (including zero-reduced eliminants $\overline{E}=0$), complete Gauss-row reduction (Proposition~\ref{prop:gauss}) across all phases for every $1\le N\le 20$, blocked chirp convolution~\eqref{eq:blocked-chirp}, and sparse fresh-vector operators.
+\item A zero-dependency Lean~4 formal verification file (\texttt{FiniteFieldChirpEliminant.lean}, verified in Lean~4.36.0 using core \texttt{Init} only, with no \texttt{sorry} and pure kernel reduction) symbolically proving $f(d)=d(d-1)/2\ge 0$ with equality iff $d\in\{0,1\}$, the reversal maximum $\sum_{i=0}^r f(2i-r)=\binom{r+2}{3}$ for all $r\ge 0$, the exact quadratic phase-cancellation identity~\eqref{eq:chirp-cancel} for all $a,c,i,j\in\Z$, even-length half-phase absorption $2\mid (j^2-j)$, the blocked integer-binomial identity~\eqref{eq:blocked-chirp}, and the even-length Gauss shift invariance of Proposition~\ref{prop:gauss}(3); and kernel-verifying the Levinson-vs.-Leibniz ring determinant and root property over $\F_2,\F_5,\F_7,\F_{17}$, exhaustive exact recognition and dense DFT output across all $625$ vectors of $\F_5^4$, and exact Gauss-row reduction across all phases for $N\in\{3,4,5,6,8,9,10,12\}$.
+\end{enumerate}
+
+\bibliographystyle{amsplain}
+\bibliography{references}
+
+\end{document}
